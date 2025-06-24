@@ -217,35 +217,22 @@ app.post('/webhook', async (req, res) => {
 
     if (cliente.preguntas.length === 2) {
       cliente.status = 'preguntas';
-      guardarEstado();
+    }
 
-      await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: `✅ Pregunta personalizada guardada: "${text}"
+    guardarEstado();
+
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: `✅ Pregunta personalizada guardada: "${text}"
 
 Preguntas actuales para ${txid}:
-1️⃣ ${cliente.preguntas[0]}
-2️⃣ ${cliente.preguntas[1]}`
-        })
-      });
-    } else {
-      guardarEstado();
-
-      await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: `✅ Pregunta personalizada guardada: "${text}"
-
-1️⃣ ${cliente.preguntas[0]}
-❗ Aún falta una pregunta más.`
-        })
-      });
-    }
+1️⃣ ${cliente.preguntas[0] || '---'}
+2️⃣ ${cliente.preguntas[1] || '---'}`
+      })
+    });
 
     return res.sendStatus(200);
   }
