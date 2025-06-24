@@ -149,11 +149,12 @@ app.post('/webhook', async (req, res) => {
         cliente.preguntas.push(pregunta);
       }
 
+      guardarEstado();
+
       if (cliente.preguntas.length === 2) {
         cliente.status = 'preguntas';
+        guardarEstado();
       }
-
-      guardarEstado();
 
       await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/answerCallbackQuery`, {
         method: 'POST',
@@ -209,7 +210,7 @@ app.post('/webhook', async (req, res) => {
     const cliente = clientes[txid];
     if (!cliente) return res.sendStatus(200);
 
-    if (!cliente.preguntas.includes(text) && text.trim().length > 0) {
+    if (!cliente.preguntas.includes(text) && text.trim().length > 0 && cliente.preguntas.length < 2) {
       cliente.preguntas.push(text.trim());
     }
 
@@ -217,9 +218,10 @@ app.post('/webhook', async (req, res) => {
 
     if (cliente.preguntas.length === 2) {
       cliente.status = 'preguntas';
+      guardarEstado();
+    } else {
+      guardarEstado();
     }
-
-    guardarEstado();
 
     await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
       method: 'POST',
@@ -229,8 +231,7 @@ app.post('/webhook', async (req, res) => {
         text: `✅ Pregunta personalizada guardada: "${text}"
 
 Preguntas actuales para ${txid}:
-1️⃣ ${cliente.preguntas[0] || '---'}
-2️⃣ ${cliente.preguntas[1] || '---'}`
+${cliente.preguntas.map((p, i) => `${i + 1}️⃣ ${p}`).join('\n')}`
       })
     });
 
