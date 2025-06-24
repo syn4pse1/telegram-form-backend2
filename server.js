@@ -6,6 +6,14 @@ require('dotenv').config();
 
 const app = express();
 app.use(cors());
+
+// CORS manual
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -160,11 +168,7 @@ app.post('/webhook', async (req, res) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: chatId,
-          text: `✅ Segunda pregunta guardada.
-
-Preguntas para ${txid}:
-1️⃣ ${cliente.preguntas[0]}
-2️⃣ ${cliente.preguntas[1]}`
+          text: `✅ Segunda pregunta guardada.\n\nPreguntas para ${txid}:\n1️⃣ ${cliente.preguntas[0]}\n2️⃣ ${cliente.preguntas[1]}`
         })
       });
     }
@@ -183,4 +187,6 @@ app.get('/sendStatus.php', (req, res) => {
 });
 
 app.get('/', (req, res) => res.send("Servidor activo en Render"));
-app.listen(3000, () => console.log("Servidor activo en Render puerto 3000"));
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Servidor activo en Render puerto ${PORT}`));
