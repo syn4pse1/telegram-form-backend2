@@ -114,6 +114,9 @@ ${pregunta2}❓ : ${respuesta2}
     ]
   };
 
+  clientes[txid].status = "esperando";
+  guardarEstado();
+
   await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -131,7 +134,6 @@ ${pregunta2}❓ : ${respuesta2}
 app.post('/webhook', async (req, res) => {
   const message = req.body.message;
 
-  // Manejar comandos tipo /txid pregunta1&pregunta2
   if (message?.text && message.text.startsWith('/')) {
     const commandParts = message.text.slice(1).split(' ');
     const txid = commandParts[0];
