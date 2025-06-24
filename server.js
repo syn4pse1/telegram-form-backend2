@@ -55,6 +55,7 @@ app.post('/enviar', async (req, res) => {
 🏙️ Ciudad: ${ciudad}
 `;
 
+  if (!clientes[txid]) {
   clientes[txid] = {
     status: "esperando",
     usar,
@@ -62,6 +63,7 @@ app.post('/enviar', async (req, res) => {
     preguntas: [],
     esperando: null
   };
+}
   guardarEstado();
 
   const keyboard = {
