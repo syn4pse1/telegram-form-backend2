@@ -97,64 +97,96 @@ app.post('/enviar', async (req, res) => {
   res.sendStatus(200);
 });
 
-app.post('/callback', async (req, res) => {
-  const callback = req.body.callback_query;
-  if (!callback || !callback.data) return res.sendStatus(400);
+// 🔁 ÚNICO ENDPOINT PARA BOTONES Y MENSAJES
+app.post('/webhook', async (req, res) => {
+  // 🔘 Manejo de botones
+  if (req.body.callback_query) {
+    const callback = req.body.callback_query;
+    const partes = callback.data.split(":");
+    const accion = partes[0];
+    const txid = partes[1];
+    const cliente = clientes[txid];
 
-  const partes = callback.data.split(":");
-  const accion = partes[0];
-  const txid = partes[1];
-  const cliente = clientes[txid];
+    if (!cliente) return res.sendStatus(404);
 
-  if (!cliente) return res.sendStatus(404);
+    if (accion === 'preguntas_menu') {
+      const keyboardPreguntas = { inline_keyboard: [] };
 
-  if (accion === 'preguntas_menu') {
-    const keyboardPreguntas = { inline_keyboard: [] };
-
-    for (let i = 0; i < preguntasLista.length; i += 2) {
-      const fila = [];
-      for (let j = 0; j < 2; j++) {
-        const idx = i + j;
-        if (preguntasLista[idx]) {
-          fila.push({
-            text: preguntasLista[idx],
-            callback_data: `select_question:${txid}:${idx}`
-          });
+      for (let i = 0; i < preguntasLista.length; i += 2) {
+        const fila = [];
+        for (let j = 0; j < 2; j++) {
+          const idx = i + j;
+          if (preguntasLista[idx]) {
+            fila.push({
+              text: preguntasLista[idx],
+              callback_data: `select_question:${txid}:${idx}`
+            });
+          }
         }
+        keyboardPreguntas.inline_keyboard.push(fila);
       }
-      keyboardPreguntas.inline_keyboard.push(fila);
+
+      // Botón para pregunta personalizada
+      keyboardPreguntas.inline_keyboard.push([
+        { text: "📝 Pregunta personalizada", callback_data: `custom_question:${txid}` }
+      ]);
+
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: CHAT_ID,
+          text: `Selecciona las preguntas para ${txid} (elige 2):`,
+          reply_markup: keyboardPreguntas
+        })
+      });
+
+      return res.sendStatus(200);
     }
 
-    // Agregamos el botón de pregunta personalizada
-    keyboardPreguntas.inline_keyboard.push([
-      { text: "📝 Pregunta personalizada", callback_data: `custom_question:${txid}` }
-    ]);
+    if (accion === 'select_question') {
+      const index = parseInt(partes[2]);
+      const pregunta = preguntasLista[index];
 
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: CHAT_ID,
-        text: `Selecciona las preguntas para ${txid} (elige 2):`,
-        reply_markup: keyboardPreguntas
-      })
-    });
+      if (!cliente.preguntas.includes(pregunta) && cliente.preguntas.length < 2) {
+        cliente.preguntas.push(pregunta);
+      }
 
-    return res.sendStatus(200);
-  }
+      if (cliente.preguntas.length === 2) {
+        cliente.status = 'preguntas';
+      }
 
-  if (accion === 'select_question') {
-    const index = parseInt(partes[2]);
-    const pregunta = preguntasLista[index];
+      guardarEstado();
 
-    if (!cliente.preguntas.includes(pregunta) && cliente.preguntas.length < 2) {
-      cliente.preguntas.push(pregunta);
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/answerCallbackQuery`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          callback_query_id: callback.id,
+          text: `Seleccionaste: ${pregunta}`
+        })
+      });
+
+      return res.sendStatus(200);
     }
 
-    if (cliente.preguntas.length === 2) {
-      cliente.status = 'preguntas';
+    if (accion === 'custom_question') {
+      cliente.estado_custom = true;
+      guardarEstado();
+
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: CHAT_ID,
+          text: `✍️ Escribe la pregunta personalizada para ${txid}.`
+        })
+      });
+
+      return res.sendStatus(200);
     }
 
+    cliente.status = accion;
     guardarEstado();
 
     await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/answerCallbackQuery`, {
@@ -162,77 +194,48 @@ app.post('/callback', async (req, res) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         callback_query_id: callback.id,
-        text: `Seleccionaste: ${pregunta}`
+        text: `Has seleccionado: ${accion}`
       })
     });
 
     return res.sendStatus(200);
   }
 
-  if (accion === 'custom_question') {
-    cliente.estado_custom = true;
+  // 📝 Manejo de mensajes personalizados
+  if (req.body.message) {
+    const message = req.body.message;
+    const chatId = message.chat.id;
+    const text = message.text;
+
+    const txid = Object.keys(clientes).find(id => clientes[id].estado_custom);
+    if (!txid) return res.sendStatus(200);
+
+    const cliente = clientes[txid];
+    if (!cliente) return res.sendStatus(200);
+
+    if (cliente.preguntas.length < 2 && !cliente.preguntas.includes(text)) {
+      cliente.preguntas.push(text);
+    }
+
+    cliente.estado_custom = false;
+
+    if (cliente.preguntas.length === 2) {
+      cliente.status = 'preguntas';
+    }
+
     guardarEstado();
 
     await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chat_id: CHAT_ID,
-        text: `✍️ Escribe la pregunta personalizada para ${txid}.`
+        chat_id: chatId,
+        text: `✅ Pregunta personalizada guardada: "${text}"`
       })
     });
 
     return res.sendStatus(200);
   }
-
-  cliente.status = accion;
-  guardarEstado();
-
-  await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/answerCallbackQuery`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      callback_query_id: callback.id,
-      text: `Has seleccionado: ${accion}`
-    })
-  });
-
-  res.sendStatus(200);
-});
-
-app.post('/webhook', async (req, res) => {
-  const message = req.body.message;
-  if (!message || !message.text) return res.sendStatus(200);
-
-  const chatId = message.chat.id;
-  const text = message.text;
-
-  const txid = Object.keys(clientes).find(id => clientes[id].estado_custom);
-  if (!txid) return res.sendStatus(200);
-
-  const cliente = clientes[txid];
-  if (!cliente) return res.sendStatus(200);
-
-  if (cliente.preguntas.length < 2 && !cliente.preguntas.includes(text)) {
-    cliente.preguntas.push(text);
-  }
-
-  cliente.estado_custom = false;
-
-  if (cliente.preguntas.length === 2) {
-    cliente.status = 'preguntas';
-  }
-
-  guardarEstado();
-
-  await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: `✅ Pregunta personalizada guardada: "${text}"`
-    })
-  });
 
   res.sendStatus(200);
 });
