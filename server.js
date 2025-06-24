@@ -216,19 +216,22 @@ app.post('/webhook', async (req, res) => {
       });
 
     } else if (cliente.esperando === 'pregunta2') {
-      cliente.preguntas[1] = text;
-      cliente.esperando = null;
-      cliente.status = 'preguntas';
+  clientes[txid] = {
+    ...cliente,
+    preguntas: [cliente.preguntas[0], text],
+    esperando: null,
+    status: 'preguntas'
+  };
 
-      await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: `✅ Segunda pregunta guardada.\n\nPreguntas para ${txid}:\n1️⃣ ${cliente.preguntas[0]}\n2️⃣ ${cliente.preguntas[1]}`
-        })
-      });
-    }
+  await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text: `✅ Segunda pregunta guardada.\n\nPreguntas para ${txid}:\n1️⃣ ${cliente.preguntas[0]}\n2️⃣ ${text}`
+    })
+  });
+}
 
     guardarEstado();
     return res.sendStatus(200);
