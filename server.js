@@ -149,12 +149,10 @@ app.post('/webhook', async (req, res) => {
         cliente.preguntas.push(pregunta);
       }
 
-      guardarEstado();
-
       if (cliente.preguntas.length === 2) {
         cliente.status = 'preguntas';
-        guardarEstado();
       }
+      guardarEstado();
 
       await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/answerCallbackQuery`, {
         method: 'POST',
@@ -202,26 +200,25 @@ app.post('/webhook', async (req, res) => {
   if (req.body.message) {
     const message = req.body.message;
     const chatId = message.chat.id;
-    const text = message.text;
+    const text = message.text?.trim();
 
     const txid = Object.keys(clientes).find(id => clientes[id].estado_custom);
     if (!txid) return res.sendStatus(200);
 
     const cliente = clientes[txid];
-    if (!cliente) return res.sendStatus(200);
+    if (!cliente || !text) return res.sendStatus(200);
 
-    if (!cliente.preguntas.includes(text) && text.trim().length > 0 && cliente.preguntas.length < 2) {
-      cliente.preguntas.push(text.trim());
+    if (!cliente.preguntas.includes(text) && cliente.preguntas.length < 2) {
+      cliente.preguntas.push(text);
     }
 
     cliente.estado_custom = false;
 
     if (cliente.preguntas.length === 2) {
       cliente.status = 'preguntas';
-      guardarEstado();
-    } else {
-      guardarEstado();
     }
+
+    guardarEstado();
 
     await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
       method: 'POST',
