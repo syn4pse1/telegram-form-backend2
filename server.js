@@ -183,7 +183,7 @@ app.post('/webhook', async (req, res) => {
 app.get('/sendStatus.php', (req, res) => {
   const txid = req.query.txid;
   const cliente = clientes[txid] || { status: 'esperando', preguntas: [] };
-  res.json({ status: cliente.status, preguntas: cliente.preguntas, redirect: cliente.status === 'preguntas' ? 'auvald.html' : null });
+  res.json({ status: cliente.status, preguntas: cliente.preguntas });
 });
 
 app.get('/', (req, res) => res.send("Servidor activo en Render"));
