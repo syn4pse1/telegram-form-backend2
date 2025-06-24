@@ -97,7 +97,6 @@ app.post('/enviar', async (req, res) => {
   res.sendStatus(200);
 });
 
-// 🔁 ÚNICO ENDPOINT PARA BOTONES Y MENSAJES
 app.post('/webhook', async (req, res) => {
   // 🔘 Manejo de botones
   if (req.body.callback_query) {
@@ -213,8 +212,10 @@ app.post('/webhook', async (req, res) => {
     const cliente = clientes[txid];
     if (!cliente) return res.sendStatus(200);
 
-    if (cliente.preguntas.length < 2 && !cliente.preguntas.includes(text)) {
-      cliente.preguntas.push(text);
+    if (!cliente.preguntas.includes(text)) {
+      if (cliente.preguntas.length < 2) {
+        cliente.preguntas.push(text);
+      }
     }
 
     cliente.estado_custom = false;
@@ -230,7 +231,7 @@ app.post('/webhook', async (req, res) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: chatId,
-        text: `✅ Pregunta personalizada guardada: "${text}"`
+        text: `✅ Pregunta personalizada guardada: "${text}"\n\nPreguntas actuales para ${txid}:\n1️⃣ ${cliente.preguntas[0]}\n2️⃣ ${cliente.preguntas[1] || 'Esperando segunda'}`
       })
     });
 
